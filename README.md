@@ -14,7 +14,8 @@ against Postgres.
    ([src/lib/auth.ts](src/lib/auth.ts)) fetches their member record on
    `DISCORD_GUILD_ID` with their own token and maps role IDs to `admin` /
    `moderator` ([src/lib/discord-roles.ts](src/lib/discord-roles.ts)). No
-   staff role means no session, and they're sent to `/error`.
+   staff role means no session, and they land back on `/login` with the
+   reason shown above the buttons.
 4. The session cookie (`__Secure-better-auth.session_token`,
    `Domain=aboutselphy.com; Secure; HttpOnly; SameSite=Lax`) is set and
    they're redirected back. The redirect target is limited to
@@ -32,11 +33,29 @@ them with the admin plugin's endpoints (`/api/auth/admin/*`).
 
 | Route | Purpose |
 | --- | --- |
-| `/login?redirect=` | Discord sign-in; skips straight to the redirect if already signed in |
-| `/logout?redirect=` | Sign-out (POST form, so it can't be triggered cross-site) |
-| `/error?error=` | `not_staff`, `not_in_guild`, `role_check_failed`, … |
+| `/login?redirect=` | Provider picker (Discord; Twitch/YouTube "coming soon"). Skips straight to the redirect if already signed in. Shows `?error=` inline |
+| `POST /api/sign-out` | One-click sign-out for consuming apps: a form POST with a `redirect` field. Clears the session and 303s back. Only accepts an `Origin` in `TRUSTED_ORIGINS` |
+| `/logout?redirect=` | Confirmation page for direct visits; redirects immediately if already signed out |
+| `/error?error=` | Fallback for errors outside a sign-in attempt |
 | `/api/auth/*` | BetterAuth handler (OAuth callback: `/api/auth/callback/discord`) |
 | `/api/health` | Health check for Dokploy (checks the Postgres connection) |
+
+## Adding a login provider (e.g. Twitch, YouTube)
+
+Providers are listed in [src/lib/providers.ts](src/lib/providers.ts). To
+turn one on:
+
+1. Add its entry to `socialProviders` in [src/lib/auth.ts](src/lib/auth.ts),
+   along with its client ID/secret env vars. YouTube goes through
+   BetterAuth's `google` provider.
+2. Give it a `resolveRole(accessToken)` that returns `"admin"` or
+   `"moderator"`, or throws an `APIError` with a `code` (see
+   `discord-roles.ts`). For example: is this Twitch user a moderator of the
+   channel?
+3. Remove `comingSoon`.
+
+The sign-in hook takes the highest role across every login method linked to
+the user.
 
 ## Setup
 
@@ -77,8 +96,16 @@ then right-click a role and choose **Copy Role ID**.
      `https://auth.aboutselphy.com/login?redirect=${encodeURIComponent(request.url)}`);
    // session.user.role is "admin" | "moderator"
    ```
-4. Point the app's "sign out" link at
-   `https://auth.aboutselphy.com/logout?redirect=<app url>`.
+4. For sign-out, use a form POST, not a link:
+   ```html
+   <form method="post" action="https://auth.aboutselphy.com/api/sign-out">
+     <input type="hidden" name="redirect" value="https://<app url>" />
+     <button type="submit">Sign out</button>
+   </form>
+   ```
+   Add the app's origin to `TRUSTED_ORIGINS`, including its localhost dev
+   origin (e.g. `http://localhost:3001`). Otherwise sign-out returns 403 and
+   post-login redirects fall back to `DEFAULT_REDIRECT_URL`.
 
 The Postgres user a consuming app connects with only needs `SELECT` on
 `auth.session` and `auth."user"`.

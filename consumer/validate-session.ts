@@ -15,6 +15,9 @@
  * Usage (Next.js server component / route handler / proxy):
  *   const session = await validateSession(request.headers.get("cookie"));
  *   if (!session) redirect(`https://auth.aboutselphy.com/login?redirect=${encodeURIComponent(url)}`);
+ *
+ * Sign-out: a form POST to https://auth.aboutselphy.com/api/sign-out with a
+ * hidden `redirect` field (the app's origin must be in TRUSTED_ORIGINS).
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Pool } from "pg";
