@@ -1,0 +1,94 @@
+:root {
+  --primary: #00ffa8;
+  --primary-foreground: #04120c;
+  --bg: #f6f7f8;
+  --card: #ffffff;
+  --fg: #111418;
+  --muted: #5d6670;
+  --border: #e3e6ea;
+  --danger: #d4323c;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0d10;
+    --card: #14181d;
+    --fg: #eef1f4;
+    --muted: #97a1ab;
+    --border: #262c33;
+    --danger: #ff6b74;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.card {
+  width: 100%;
+  max-width: 24rem;
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+  background: var(--card);
+  border: 0.0625rem solid var(--border);
+  border-radius: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+}
+
+p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+}
+
+form {
+  display: grid;
+}
+
+.button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 0.625rem;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.button.secondary {
+  background: transparent;
+  color: var(--fg);
+  border: 0.0625rem solid var(--border);
+}
+
+.button:focus-visible {
+  outline: 0.125rem solid var(--primary);
+  outline-offset: 0.125rem;
+}
