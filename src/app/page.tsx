@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAuth } from "@/lib/auth";
@@ -11,13 +10,18 @@ export default async function HomePage() {
 
   return (
     <>
-      <h1>Signed in</h1>
-      <p>
-        {session.user.name} · {session.user.role ?? "no role"}
-      </p>
-      <Link className="button secondary" href="/logout">
-        Sign out
-      </Link>
+      <header className="stack">
+        <span className="eyebrow">aboutselphy staff</span>
+        <h1>You&apos;re signed in</h1>
+        <p>
+          <strong>{session.user.name}</strong> · {session.user.role ?? "no role"}
+        </p>
+      </header>
+      <form method="post" action="/api/sign-out">
+        <button className="button secondary" type="submit">
+          Sign out
+        </button>
+      </form>
     </>
   );
 }
