@@ -3,8 +3,34 @@ import { APIError } from "better-auth/api";
 import { admin } from "better-auth/plugins/admin";
 import { nextCookies } from "better-auth/next-js";
 import { getPool } from "@/lib/db";
-import { ROLE_CHECK_FAILED, resolveStaffRole } from "@/lib/discord-roles";
+import { ROLE_CHECK_FAILED } from "@/lib/discord-roles";
 import { listEnv } from "@/lib/env";
+import { findProvider } from "@/lib/providers";
+import { ADMIN_ROLE, type StaffRole } from "@/lib/roles";
+
+/**
+ * Highest staff role across every login method linked to the user (only
+ * Discord today; Twitch/YouTube slot in via LOGIN_PROVIDERS). Rethrows the
+ * last provider error -- e.g. not_staff -- if none of them grants access.
+ */
+async function resolveStaffRole(accounts: { providerId: string; accessToken?: string | null }[]) {
+  let role: StaffRole | null = null;
+  let lastError: unknown = new APIError("FORBIDDEN", { code: ROLE_CHECK_FAILED, message: "No supported login linked" });
+
+  for (const account of accounts) {
+    const resolveRole = findProvider(account.providerId)?.resolveRole;
+    if (!resolveRole || !account.accessToken) continue;
+    try {
+      role = await resolveRole(account.accessToken);
+      if (role === ADMIN_ROLE) break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (!role) throw lastError;
+  return role;
+}
 
 // Shared by the running app and scripts/migrate.ts so the migration plan
 // always matches the live schema (admin plugin fields included).
@@ -33,18 +59,15 @@ export function authOptions() {
     databaseHooks: {
       session: {
         create: {
-          // Every login re-derives the role from Discord, so granting or
-          // removing a Discord role takes effect on the user's next sign-in.
-          // Throwing here aborts the OAuth callback before any cookie is set;
-          // BetterAuth redirects to /error?error=<code> instead.
+          // Every login re-derives the role from the provider (Discord server
+          // roles today), so granting or removing a role takes effect on the
+          // user's next sign-in. Throwing here aborts the OAuth callback
+          // before any cookie is set; BetterAuth redirects to the sign-in
+          // request's errorCallbackURL (/login?error=<code>) instead.
           before: async (session, ctx) => {
             if (!ctx) throw new APIError("INTERNAL_SERVER_ERROR", { code: ROLE_CHECK_FAILED });
             const accounts = await ctx.context.internalAdapter.findAccounts(session.userId);
-            const discord = accounts.find((account) => account.providerId === "discord");
-            if (!discord?.accessToken) {
-              throw new APIError("FORBIDDEN", { code: ROLE_CHECK_FAILED, message: "No Discord account linked" });
-            }
-            const role = await resolveStaffRole(discord.accessToken);
+            const role = await resolveStaffRole(accounts);
             await ctx.context.internalAdapter.updateUser(session.userId, { role });
           },
         },

@@ -1,23 +1,27 @@
 :root {
   --primary: #00ffa8;
   --primary-foreground: #04120c;
-  --bg: #f6f7f8;
+  --bg: #f4f6f7;
   --card: #ffffff;
   --fg: #111418;
   --muted: #5d6670;
-  --border: #e3e6ea;
-  --danger: #d4323c;
+  --border: #e1e5e9;
+  --surface: #f6f8f9;
+  --danger: #c62f38;
+  --danger-bg: #fdeced;
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b0d10;
-    --card: #14181d;
+    --bg: #0a0c0f;
+    --card: #12161b;
     --fg: #eef1f4;
     --muted: #97a1ab;
-    --border: #262c33;
-    --danger: #ff6b74;
+    --border: #252b32;
+    --surface: #181d23;
+    --danger: #ff7a82;
+    --danger-bg: #2a1417;
   }
 }
 
@@ -31,7 +35,9 @@ body {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: var(--bg);
+  background:
+    radial-gradient(40rem 24rem at 50% -10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 70%),
+    var(--bg);
   color: var(--fg);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   line-height: 1.5;
@@ -39,18 +45,41 @@ body {
 
 .card {
   width: 100%;
-  max-width: 24rem;
+  max-width: 25rem;
   padding: clamp(1.5rem, 5vw, 2.25rem);
   background: var(--card);
   border: 0.0625rem solid var(--border);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
+  box-shadow: 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 0.25);
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
+  animation: enter 240ms ease-out both;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.stack {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  font-size: clamp(1.375rem, 3vw, 1.625rem);
+  letter-spacing: -0.01em;
 }
 
 p {
@@ -58,12 +87,110 @@ p {
   color: var(--muted);
 }
 
-.error {
+p strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.fine-print {
+  font-size: 0.8125rem;
+}
+
+.alert {
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.75rem;
+  background: var(--danger-bg);
   color: var(--danger);
+  font-size: 0.9375rem;
 }
 
 form {
   display: grid;
+}
+
+.providers {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.provider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.8125rem 1rem;
+  border: 0.0625rem solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms,
+    background-color 150ms,
+    transform 150ms;
+}
+
+.provider:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+}
+
+.provider:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.provider:focus-visible {
+  outline: 0.125rem solid var(--brand);
+  outline-offset: 0.125rem;
+}
+
+.provider:disabled {
+  cursor: not-allowed;
+}
+
+.provider:disabled:not([aria-busy="true"]) {
+  opacity: 0.5;
+}
+
+.provider-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  fill: var(--brand);
+}
+
+.provider-label {
+  flex: 1;
+}
+
+.badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 62.5rem;
+  border: 0.0625rem solid var(--border);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 0.15rem solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border-top-color: var(--brand);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .button {
@@ -73,7 +200,7 @@ form {
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   border: 0;
-  border-radius: 0.625rem;
+  border-radius: 0.75rem;
   font: inherit;
   font-weight: 600;
   text-decoration: none;
@@ -91,4 +218,11 @@ form {
 .button:focus-visible {
   outline: 0.125rem solid var(--primary);
   outline-offset: 0.125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .spinner {
+    animation: none;
+  }
 }

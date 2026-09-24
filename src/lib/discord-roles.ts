@@ -15,7 +15,7 @@ type GuildMember = { roles: string[] };
  * Throws an APIError -- which BetterAuth's OAuth callback turns into a
  * redirect to the error page -- when they aren't staff.
  */
-export async function resolveStaffRole(accessToken: string): Promise<StaffRole> {
+export async function resolveDiscordStaffRole(accessToken: string): Promise<StaffRole> {
   const guildId = requireEnv("DISCORD_GUILD_ID");
   const res = await fetch(`https://discord.com/api/v10/users/@me/guilds/${guildId}/member`, {
     headers: { Authorization: `Bearer ${accessToken}` },
