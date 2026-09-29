@@ -12,9 +12,15 @@
  *   BETTER_AUTH_SECRET    verifies the cookie signature
  *   AUTH_COOKIE_PREFIX    default "better-auth"
  *
- * Usage (Next.js server component / route handler / proxy):
- *   const session = await validateSession(request.headers.get("cookie"));
+ * Staff apps (admin pages) -- only Discord sign-ins with a mod/admin role:
+ *   const session = await validateSession(cookieHeader);
  *   if (!session) redirect(`https://auth.aboutselphy.com/login?redirect=${encodeURIComponent(url)}`);
+ *
+ * Viewer apps -- any signed-in user (Discord, Twitch or YouTube):
+ *   const session = await validateSession(cookieHeader, { audience: "viewer" });
+ *   if (!session) redirect(`https://auth.aboutselphy.com/login?audience=viewer&redirect=${encodeURIComponent(url)}`);
+ *   const platforms = await linkedAccounts(session.user.id); // Twitch user ID, YouTube channel ID, ...
+ *   // "Connect more platforms": https://auth.aboutselphy.com/account?audience=viewer&redirect=<url>
  *
  * Sign-out: a form POST to https://auth.aboutselphy.com/api/sign-out with a
  * hidden `redirect` field (the app's origin must be in TRUSTED_ORIGINS).
@@ -22,16 +28,30 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Pool } from "pg";
 
-export type StaffSession = {
+export type Role = "admin" | "moderator" | "viewer";
+
+export type AuthSession<R extends Role = Role> = {
   sessionId: string;
   expiresAt: Date;
+  /** Platform this session signed in with ("discord" | "twitch" | "google"), null for older sessions. */
+  loginProvider: string | null;
   user: {
     id: string;
     name: string;
     email: string;
     image: string | null;
-    role: "admin" | "moderator";
+    /** This session's access level -- staff roles only come from a Discord sign-in. */
+    role: R;
   };
+};
+
+export type StaffSession = AuthSession<"admin" | "moderator">;
+
+export type LinkedAccount = {
+  /** "discord" | "twitch" | "google" (YouTube). */
+  providerId: string;
+  /** Discord user ID, Twitch user ID, or YouTube channel ID. */
+  accountId: string;
 };
 
 declare global {
@@ -74,13 +94,32 @@ export function sessionTokenFromCookies(cookieHeader: string | null | undefined)
   return token;
 }
 
-/** Returns the staff session for this request, or null if signed out / expired / banned / not staff. */
-export async function validateSession(cookieHeader: string | null | undefined): Promise<StaffSession | null> {
+function isStaff(role: string | null | undefined): role is "admin" | "moderator" {
+  return role === "admin" || role === "moderator";
+}
+
+/**
+ * The session for this request, or null if signed out / expired / banned --
+ * or, for the default "staff" audience, not a staff session.
+ */
+export async function validateSession(cookieHeader: string | null | undefined): Promise<StaffSession | null>;
+export async function validateSession(
+  cookieHeader: string | null | undefined,
+  options: { audience: "viewer" },
+): Promise<AuthSession | null>;
+export async function validateSession(
+  cookieHeader: string | null | undefined,
+  options: { audience?: "staff" | "viewer" } = {},
+): Promise<AuthSession | null> {
   const token = sessionTokenFromCookies(cookieHeader);
   if (!token) return null;
 
+  // The session's own role; sessions from before per-session roles existed
+  // (all Discord sign-ins) fall back to the user's Discord-derived role.
   const { rows } = await pool().query(
-    `select s.id as "sessionId", s."expiresAt", u.id, u.name, u.email, u.image, u.role
+    `select s.id as "sessionId", s."expiresAt", s."loginProvider",
+            coalesce(s.role, u.role, 'viewer') as role,
+            u.id, u.name, u.email, u.image
        from "session" s
        join "user" u on u.id = s."userId"
       where s.token = $1
@@ -89,11 +128,23 @@ export async function validateSession(cookieHeader: string | null | undefined): 
     [token],
   );
   const row = rows[0];
-  if (!row || (row.role !== "admin" && row.role !== "moderator")) return null;
+  if (!row) return null;
+  const role: Role = isStaff(row.role) ? row.role : "viewer";
+  if (options.audience !== "viewer" && !isStaff(role)) return null;
 
   return {
     sessionId: row.sessionId,
     expiresAt: row.expiresAt,
-    user: { id: row.id, name: row.name, email: row.email, image: row.image, role: row.role },
+    loginProvider: row.loginProvider,
+    user: { id: row.id, name: row.name, email: row.email, image: row.image, role },
   };
+}
+
+/** Platforms connected to a user (one row per provider). */
+export async function linkedAccounts(userId: string): Promise<LinkedAccount[]> {
+  const { rows } = await pool().query(
+    `select "providerId", "accountId" from "account" where "userId" = $1 order by "createdAt"`,
+    [userId],
+  );
+  return rows;
 }
