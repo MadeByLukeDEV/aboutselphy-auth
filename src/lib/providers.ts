@@ -1,33 +1,69 @@
 import { discordIcon, twitchIcon, youtubeIcon, type BrandIcon } from "@/lib/brand-icons";
-import { resolveDiscordStaffRole } from "@/lib/discord-roles";
-import type { StaffRole } from "@/lib/roles";
 
-// Every login method the /login page offers. Adding one (e.g. Twitch) means:
-//   1. add its BetterAuth socialProviders entry in src/lib/auth.ts,
-//   2. give it a `resolveRole` that maps the user's token to a staff role
-//      (e.g. "is this Twitch user a mod of the channel?"),
-//   3. flip `comingSoon` off.
+// Every login method. A provider only works once its OAuth app credentials
+// are set (see .env.example); until then it's shown as "Soon".
+//
+// Audiences:
+//   - staff  (social.aboutselphy.com, aboutselphy.com/admin): Discord only --
+//     staff roles come from the Discord server, so only a Discord sign-in
+//     yields a staff session.
+//   - viewer (Viewer Dashboard): any provider; the others get linked to the
+//     same account afterwards from /account.
+export type ProviderId = "discord" | "twitch" | "google";
+export type Audience = "staff" | "viewer";
+
 export type LoginProvider = {
-  id: "discord" | "twitch" | "google";
+  id: ProviderId;
+  /** What users see. YouTube sign-in goes through Google OAuth. */
   label: string;
   icon: BrandIcon;
-  /** Shown on the page but not clickable yet. */
-  comingSoon?: boolean;
-  /** Derives the staff role from this provider's OAuth access token; throws an APIError when the user isn't staff. */
-  resolveRole?: (accessToken: string) => Promise<StaffRole>;
+  clientIdEnv: string;
+  clientSecretEnv: string;
+  audiences: Audience[];
 };
 
 export const LOGIN_PROVIDERS: LoginProvider[] = [
-  { id: "discord", label: "Discord", icon: discordIcon, resolveRole: resolveDiscordStaffRole },
-  { id: "twitch", label: "Twitch", icon: twitchIcon, comingSoon: true },
-  // YouTube sign-in goes through Google OAuth.
-  { id: "google", label: "YouTube", icon: youtubeIcon, comingSoon: true },
+  {
+    id: "discord",
+    label: "Discord",
+    icon: discordIcon,
+    clientIdEnv: "DISCORD_CLIENT_ID",
+    clientSecretEnv: "DISCORD_CLIENT_SECRET",
+    audiences: ["staff", "viewer"],
+  },
+  {
+    id: "twitch",
+    label: "Twitch",
+    icon: twitchIcon,
+    clientIdEnv: "TWITCH_CLIENT_ID",
+    clientSecretEnv: "TWITCH_CLIENT_SECRET",
+    audiences: ["viewer"],
+  },
+  {
+    id: "google",
+    label: "YouTube",
+    icon: youtubeIcon,
+    clientIdEnv: "GOOGLE_CLIENT_ID",
+    clientSecretEnv: "GOOGLE_CLIENT_SECRET",
+    audiences: ["viewer"],
+  },
 ];
 
 export function findProvider(id: string | null | undefined) {
   return LOGIN_PROVIDERS.find((provider) => provider.id === id);
 }
 
-export function isAvailable(provider: LoginProvider | undefined): provider is LoginProvider {
-  return !!provider && !provider.comingSoon && !!provider.resolveRole;
+export function isConfigured(provider: LoginProvider | undefined): provider is LoginProvider {
+  return !!provider && !!process.env[provider.clientIdEnv] && !!process.env[provider.clientSecretEnv];
+}
+
+export function credentials(provider: LoginProvider) {
+  return {
+    clientId: process.env[provider.clientIdEnv] ?? "",
+    clientSecret: process.env[provider.clientSecretEnv] ?? "",
+  };
+}
+
+export function parseAudience(value: string | string[] | undefined | null): Audience {
+  return value === "viewer" ? "viewer" : "staff";
 }
