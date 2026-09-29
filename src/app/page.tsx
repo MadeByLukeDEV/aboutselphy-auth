@@ -4,24 +4,8 @@ import { getAuth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+// auth.aboutselphy.com itself: your account if signed in, otherwise sign-in.
 export default async function HomePage() {
   const session = await getAuth().api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
-
-  return (
-    <>
-      <header className="stack">
-        <span className="eyebrow">aboutselphy staff</span>
-        <h1>You&apos;re signed in</h1>
-        <p>
-          <strong>{session.user.name}</strong> · {session.user.role ?? "no role"}
-        </p>
-      </header>
-      <form method="post" action="/api/sign-out">
-        <button className="button secondary" type="submit">
-          Sign out
-        </button>
-      </form>
-    </>
-  );
+  redirect(session ? "/account" : "/login?audience=viewer");
 }
